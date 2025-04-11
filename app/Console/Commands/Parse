@@ -1,0 +1,80 @@
+<?php
+
+namespace App\Console\Commands;
+
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+
+class ParseLogsCommand extends Command
+{
+    protected $signature = 'parse:logs';
+    protected $description = 'Ambil dan parsing log dari NAS ke database';
+
+    public function handle()
+    {
+        $this->info('Mulai ambil file log dari NAS...');
+
+        $nasBasePath = 'vmbackup@103.156.110.2:/volume1/BACKUP_SERVER/logmonitor/';
+        $nasPort = 31227;
+        $localDir = storage_path('logs');
+        $vms = [
+            'ciku'  => 'ciku_sys_monitor.log',
+            'sakip' => 'sakip_sys_monitor.log',
+            'emonev-bappeda' => 'bappeda_sys_monitor.log',
+        ];
+
+        foreach ($vms as $vm => $filename) {
+            $remote = $nasBasePath . $filename;
+            $local = $localDir . "/{$filename}";
+
+            $this->info("Mengambil log {$filename}...");
+            exec("scp -P {$nasPort} {$remote} {$local}");
+
+            if (!file_exists($local)) {
+                $this->error("Gagal ambil file: {$filename}");
+                continue;
+            }
+
+            $this->info("Memproses {$filename}...");
+            $lines = file($local, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+            foreach ($lines as $line) {
+                if (preg_match('/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) - CPU Usage: 1 min: (.*?)% \| 5 min: (.*?)% \| 15 min: (.*?)%/', $line, $cpu))
+ {
+                    $timestamp = Carbon::parse($cpu[1]);
+
+                    DB::table('vm_logs')->updateOrInsert(
+                        ['vm_name' => $vm, 'timestamp' => $timestamp],
+                        [
+                            'cpu_1min' => (float) $cpu[2],
+                            'cpu_5min' => (float) $cpu[3],
+                            'cpu_15min' => (float) $cpu[4],
+                            'updated_at' => now(),
+                        ]
+                    );
+                }
+
+             if (preg_match('/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) - RAM Usage: Total: (.*?)MB \| Used: (.*?)MB \| Free: (.*?)MB \| Usage: (.*?)%/', $line, $ram))
+ {
+                    $timestamp = Carbon::parse($ram[1]);
+
+                    DB::table('vm_logs')->updateOrInsert(
+                        ['vm_name' => $vm, 'timestamp' => $timestamp],
+                        [
+                            'ram_total' => (float) $ram[2],
+                            'ram_used' => (float) $ram[3],
+                            'ram_free' => (float) $ram[4],
+                            'ram_percent' => (float) $ram[5],
+                            'updated_at' => now(),
+                        ]
+                    );
+                }
+            }
+
+            $this->info("Selesai proses log {$vm}.");
+        }
+
+        $this->info('Semua log berhasil diproses dan disimpan ke database.');
+    }
+}

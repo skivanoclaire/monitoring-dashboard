@@ -25,6 +25,7 @@ class ParseLogsCommand extends Command
             'ebang'   => 'ebang_sys_monitor.log',
             'sipla'   => 'sipla_sys_monitor.log',
             'kalhiro' => 'kalhiro_sys_monitor.log',
+            'sisda' => 'sisda_sys_monitor.log',
         ];
 
         foreach ($vms as $vm => $filename) {

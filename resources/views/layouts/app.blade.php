@@ -24,7 +24,7 @@
                     <a href="https://cloud-as.ruijienetworks.com" class="hover:text-blue-600">Internet Perangkat Daerah</a>
                 </li>
                 <li>
-                    <a href="" class="hover:text-blue-600">Email Resmi Pemerintah</a>
+                    <a href="{{ url('/email-monitor') }}" class="hover:text-blue-600">Email Resmi Pemerintah</a>
                 </li>
                 <!--
                 <li>
